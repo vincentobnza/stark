@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { ApprovalDecision, ApprovalRequest } from '../core/agent/loop'
 import type { VoiceEngine } from '../voice'
+import type { Brain } from '../agent'
 
 export type Status = 'idle' | 'listening' | 'transcribing' | 'thinking' | 'awaiting' | 'speaking'
 
@@ -24,6 +25,10 @@ interface StarkState {
   error: string | null
   model: string
   models: string[]
+  /** Which brain answers: the local model or Claude. */
+  brain: Brain
+  /** Whether the service has Anthropic credentials, i.e. is Claude offerable. */
+  llmReady: boolean
   voiceReply: boolean
   /** Which engine speaks the reply. */
   voiceEngine: VoiceEngine
@@ -40,6 +45,8 @@ interface StarkState {
   setError(error: string | null): void
   setModel(model: string): void
   setModels(models: string[]): void
+  setBrain(brain: Brain): void
+  setLlmReady(ready: boolean): void
   toggleVoiceReply(): void
   toggleAutoApprove(): void
   setVoiceEngine(engine: VoiceEngine): void
@@ -54,6 +61,8 @@ export const useStark = create<StarkState>((set) => ({
   error: null,
   model: 'qwen2.5:3b',
   models: [],
+  brain: 'ollama',
+  llmReady: false,
   voiceReply: true,
   // Prefer the cloud voice; the session downgrades this if no key is configured.
   voiceEngine: 'elevenlabs',
@@ -68,6 +77,8 @@ export const useStark = create<StarkState>((set) => ({
   setError: (error) => set({ error }),
   setModel: (model) => set({ model }),
   setModels: (models) => set({ models }),
+  setBrain: (brain) => set({ brain }),
+  setLlmReady: (llmReady) => set({ llmReady }),
   toggleVoiceReply: () => set((s) => ({ voiceReply: !s.voiceReply })),
   toggleAutoApprove: () => set((s) => ({ autoApprove: !s.autoApprove })),
   setVoiceEngine: (voiceEngine) => set({ voiceEngine }),

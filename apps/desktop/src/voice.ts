@@ -14,6 +14,10 @@ export interface ServiceHealth {
   /** True when ELEVENLABS_API_KEY is set on the service. */
   tts_ready: boolean
   tts_voice: string | null
+  /** True when the service has Anthropic credentials. */
+  llm_ready: boolean
+  llm_model: string | null
+  llm_fast: boolean
 }
 
 export async function serviceHealth(): Promise<ServiceHealth | null> {

@@ -147,6 +147,41 @@ The tier system stays intact underneath either way — auto-approve resolves eac
 request as `allow-once`, never `allow-session`, so switching back to `ask` takes
 effect on the very next tool call rather than after a restart.
 
+## The brain
+
+Two, switchable at runtime by the `claude` / `local` toggle in the hover controls.
+
+| Brain | Where | Notes |
+| --- | --- | --- |
+| `local` | Ollama on this machine | Free, private, offline. A 3B model has a hard ceiling on tool-selection accuracy. |
+| `claude` | Claude Opus 5, via the Python service | Frontier reasoning, and *faster* than local — see below. Costs per turn; the conversation leaves the machine. |
+
+Set `ANTHROPIC_API_KEY` in `services/ai/.env` (or run `ant auth login`, which
+stores a profile the SDK reads automatically) and restart `pnpm ai`. The app
+switches to Claude on its own once the service reports credentials; without
+them the toggle is disabled and the local model keeps answering.
+
+The key lives in the Python service for the same reason the ElevenLabs one does:
+anything in the desktop bundle ships readable.
+
+**Cloud is the faster option here, not the slower one.** Local inference is
+capped by this machine at ~19 tok/s. A cloud call is network latency plus
+generation at hundreds of tok/s, so the machine stops being the bottleneck.
+
+Request shape ([llm.py](services/ai/src/stark_ai/llm.py)), tuned for voice:
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| `output_config.effort` | `low` | Fewer, more-consolidated tool calls and no preamble. Raise with `STARK_CLAUDE_EFFORT=high` for harder multi-step work. |
+| `speed: "fast"` | on | Up to 2.5x output tokens/sec, at premium pricing. Disable with `STARK_CLAUDE_FAST=0`. |
+| `thinking` | `adaptive` | Left on deliberately — disabling it makes the model write tool calls into visible text instead of calling them. |
+| `fallbacks` | `"default"` | A policy decline reroutes instead of returning nothing. |
+| `max_tokens` | 2000 | The reply is one sentence, but adaptive thinking draws from the same budget. |
+
+The agent loop stays in the desktop app because the tools run on Windows, so
+the service is stateless: one turn in, one turn out, tool calls handed back for
+the app to approve and execute.
+
 ## Latency
 
 Everything is local, so latency is entirely a function of tokens generated and

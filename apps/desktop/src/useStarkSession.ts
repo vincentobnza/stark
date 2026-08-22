@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { agent, refreshModels } from './agent'
+import { agent, refreshModels, selectBrain } from './agent'
 import { greeting } from './greeting'
 import { useStark } from './state/store'
 import { VoiceGate, serviceHealth, speak, stopSpeaking, transcribe } from './voice'
@@ -32,6 +32,7 @@ export function useStarkSession() {
     voiceEngine,
     setVoiceEngine,
     setTtsReady,
+    setLlmReady,
     autoApprove,
   } = useStark()
 
@@ -117,8 +118,6 @@ export function useStarkSession() {
 
   // One gate for the lifetime of the app.
   useEffect(() => {
-    void refreshModels()
-
     let cancelled = false
     const instance = new VoiceGate({
       onSpeechStart: () => {
@@ -135,7 +134,13 @@ export function useStarkSession() {
     void serviceHealth().then(async (health) => {
       if (cancelled) return
       setTtsReady(health?.tts_ready ?? false)
+      setLlmReady(health?.llm_ready ?? false)
       if (health && !health.tts_ready) setVoiceEngine('system')
+      // Claude is the better brain by a wide margin, so prefer it whenever the
+      // service actually has credentials for it.
+      if (health?.llm_ready) selectBrain('claude')
+      // After the brain is picked: the picker's contents depend on it.
+      void refreshModels()
       if (!health) {
         setError('Speech service unreachable on :8756')
         return
@@ -177,7 +182,7 @@ export function useStarkSession() {
       instance.stop()
       gate.current = null
     }
-  }, [setStatus, setError, setCaption, setTtsReady, setVoiceEngine])
+  }, [setStatus, setError, setCaption, setTtsReady, setLlmReady, setVoiceEngine])
 
   /** Something is happening that the user can cut off. */
   const interruptible = status === 'thinking' || status === 'speaking'

@@ -1,9 +1,40 @@
 import { Agent } from './core/agent/loop'
-import { OllamaProvider } from './core/llm'
+import { ClaudeProvider, OllamaProvider } from './core/llm'
+import type { ChatRequest, ChatResponse, LLMProvider } from './core/llm'
 import { createDefaultRegistry } from './core/tools/builtin'
 import { useStark } from './state/store'
 
-const provider = new OllamaProvider(useStark.getState().model)
+export type Brain = 'ollama' | 'claude'
+
+const ollama = new OllamaProvider(useStark.getState().model)
+const claude = new ClaudeProvider()
+
+/**
+ * Delegates to whichever brain is selected. The Agent holds one provider
+ * reference for its lifetime, so swapping through this keeps the conversation
+ * intact instead of resetting it on every change.
+ */
+class SwitchableProvider implements LLMProvider {
+  inner: LLMProvider = ollama
+
+  get id() {
+    return this.inner.id
+  }
+  get label() {
+    return this.inner.label
+  }
+  get model() {
+    return this.inner.model
+  }
+  listModels(): Promise<string[]> {
+    return this.inner.listModels()
+  }
+  chat(req: ChatRequest): Promise<ChatResponse> {
+    return this.inner.chat(req)
+  }
+}
+
+const provider = new SwitchableProvider()
 const registry = createDefaultRegistry()
 
 export const agent = new Agent({
@@ -73,17 +104,28 @@ export const agent = new Agent({
   onToken: (delta) => useStark.getState().pushDelta(delta),
 })
 
-/** Point the live provider at a different local model, keeping history intact. */
+/** Point the local provider at a different model, keeping history intact. */
 export function selectModel(model: string): void {
-  provider.model = model
+  ollama.model = model
   useStark.getState().setModel(model)
+}
+
+/** Swap brains mid-conversation. The transcript carries over. */
+export function selectBrain(brain: Brain): void {
+  provider.inner = brain === 'claude' ? claude : ollama
+  useStark.getState().setBrain(brain)
 }
 
 /** Populate the model picker; also doubles as an Ollama reachability check. */
 export async function refreshModels(): Promise<void> {
-  const { setModels, setError, model } = useStark.getState()
+  const { setModels, setError, model, brain } = useStark.getState()
+  // Only the local brain has models to choose between.
+  if (brain === 'claude') {
+    setModels([claude.model])
+    return
+  }
   try {
-    const models = await provider.listModels()
+    const models = await ollama.listModels()
     setModels(models)
     if (models.length === 0) {
       setError('No models installed. Run: ollama pull qwen2.5:3b')

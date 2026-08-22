@@ -1,5 +1,5 @@
 import { useStark } from '../state/store'
-import { selectModel } from '../agent'
+import { selectBrain, selectModel } from '../agent'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
 /**
@@ -17,6 +17,8 @@ export function Controls() {
     voiceEngine,
     setVoiceEngine,
     ttsReady,
+    brain,
+    llmReady,
   } = useStark()
 
   return (
@@ -25,9 +27,27 @@ export function Controls() {
         STARK
       </span>
 
+      <button
+        onClick={() => selectBrain(brain === 'claude' ? 'ollama' : 'claude')}
+        disabled={!llmReady}
+        title={
+          llmReady
+            ? brain === 'claude'
+              ? 'Claude Opus 5 — cloud'
+              : 'Local model — private, weaker'
+            : 'Set ANTHROPIC_API_KEY in services/ai/.env to enable Claude'
+        }
+        className={`px-1.5 py-1 text-[10px] hover:bg-white/8 disabled:opacity-40 disabled:hover:bg-transparent ${
+          brain === 'claude' ? 'text-emerald-300/90' : 'text-white/30'
+        }`}
+      >
+        {brain === 'claude' ? 'claude' : 'local'}
+      </button>
+
       <select
         value={model}
         onChange={(e) => selectModel(e.target.value)}
+        disabled={brain === 'claude'}
         title="Local model"
         className="max-w-32 truncate border border-white/10 bg-white/6 px-1.5 py-1 text-[10px] text-white/45 outline-none hover:text-white/80"
       >

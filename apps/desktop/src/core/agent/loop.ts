@@ -72,6 +72,7 @@ export class Agent {
           this.#push({
             role: 'tool',
             toolName: call.name,
+            toolCallId: call.id,
             content: `Error: unknown tool "${call.name}"`,
           })
           continue
@@ -82,6 +83,7 @@ export class Agent {
           this.#push({
             role: 'tool',
             toolName: call.name,
+            toolCallId: call.id,
             content: 'Denied by the user. Do not retry this call.',
           })
           continue
@@ -91,6 +93,7 @@ export class Agent {
         this.#push({
           role: 'tool',
           toolName: call.name,
+          toolCallId: call.id,
           content: result.ok
             ? JSON.stringify(result.value)
             : `Error: ${result.error}`,
