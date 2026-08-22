@@ -4,7 +4,6 @@ import { ApprovalPrompt } from "./components/ApprovalPrompt";
 import { Controls } from "./components/Controls";
 import { Orb } from "./components/Orb";
 import { Waveform } from "./components/Waveform";
-import { BootSequence } from "./components/BootSequence";
 import { useStark } from "./state/store";
 import { useStarkSession } from "./useStarkSession";
 
@@ -37,9 +36,6 @@ export default function App() {
     interruptible,
     micOpen,
     level,
-    bootSteps,
-    bootDone,
-    dismissBoot,
   } = useStarkSession();
 
   // No push-to-talk any more; speech starts a turn on its own. These keys only

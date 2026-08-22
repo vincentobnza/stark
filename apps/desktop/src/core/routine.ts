@@ -10,6 +10,8 @@ export interface RoutineStep {
   await_process: string | null
   /** Press Play/Pause once this step's process is up. */
   media_play: boolean
+  /** Spoken before the step runs. Falls back to "Opening {label}". */
+  say: string | null
 }
 
 export interface Routine {
@@ -17,6 +19,8 @@ export interface Routine {
   initial_delay_ms: number
   gap_ms: number
   speak_greeting: boolean
+  /** Narrate each step as it runs. */
+  speak_steps: boolean
   speak_summary: boolean
   steps: RoutineStep[]
 }
@@ -85,6 +89,13 @@ export async function runRoutine(routine: Routine, opts: RunOptions): Promise<St
     const step = active[i]
     progress[i].state = 'starting'
     emit()
+
+    // Narrate before launching, so the line lands while the app is opening
+    // rather than after it is already on screen.
+    if (routine.speak_steps) {
+      await opts.say(step.say?.trim() || `Opening ${step.label}.`)
+      if (aborted()) break
+    }
 
     try {
       await invoke('open_app', { name: step.command, args: step.args })

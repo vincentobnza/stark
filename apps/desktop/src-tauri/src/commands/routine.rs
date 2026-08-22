@@ -24,6 +24,9 @@ pub struct RoutineStep {
     /// Press Play/Pause once this step's process is up.
     #[serde(default)]
     pub media_play: bool,
+    /// Spoken before the step runs. Defaults to "Opening {label}".
+    #[serde(default)]
+    pub say: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -34,6 +37,8 @@ pub struct Routine {
     /// Gap between steps, so Windows is not hit with everything at once.
     pub gap_ms: u64,
     pub speak_greeting: bool,
+    /// Narrate each step as it runs.
+    pub speak_steps: bool,
     pub speak_summary: bool,
     pub steps: Vec<RoutineStep>,
 }
@@ -45,6 +50,7 @@ impl Default for Routine {
             initial_delay_ms: 1200,
             gap_ms: 900,
             speak_greeting: true,
+            speak_steps: true,
             speak_summary: true,
             steps: vec![
                 RoutineStep {
@@ -58,6 +64,7 @@ impl Default for Routine {
                     args: vec![r"C:\Users\vince\dev\stark".into()],
                     await_process: Some("Code.exe".into()),
                     media_play: false,
+                    say: Some("Opening VS Code.".into()),
                 },
                 RoutineStep {
                     id: "chrome".into(),
@@ -67,6 +74,7 @@ impl Default for Routine {
                     args: vec![],
                     await_process: Some("chrome.exe".into()),
                     media_play: false,
+                    say: Some("Opening Chrome.".into()),
                 },
                 RoutineStep {
                     id: "spotify".into(),
@@ -77,6 +85,7 @@ impl Default for Routine {
                     await_process: Some("Spotify.exe".into()),
                     // Resume whatever was last playing.
                     media_play: true,
+                    say: Some("Opening Spotify. Resuming your music.".into()),
                 },
                 RoutineStep {
                     id: "terminal".into(),
@@ -86,6 +95,7 @@ impl Default for Routine {
                     args: vec![],
                     await_process: Some("WindowsTerminal.exe".into()),
                     media_play: false,
+                    say: Some("Opening your terminal.".into()),
                 },
                 RoutineStep {
                     id: "postman".into(),
@@ -96,6 +106,7 @@ impl Default for Routine {
                     args: vec![],
                     await_process: Some("Postman.exe".into()),
                     media_play: false,
+                    say: Some("Opening Postman.".into()),
                 },
             ],
         }

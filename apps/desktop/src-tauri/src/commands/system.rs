@@ -68,7 +68,15 @@ pub fn open_app(name: String, args: Vec<String>) -> Result<String, String> {
     #[cfg(not(windows))]
     let target = name.clone();
 
-    let mut cmd = if cfg!(windows) {
+    // A real file is spawned directly. Routing it through `cmd /C start` means
+    // cmd re-parses the command line, and a path containing spaces (e.g.
+    // "Microsoft VS Code") gets split despite Rust's quoting — the launch then
+    // fails silently, because `start` reports nothing back to us.
+    // `start` is only needed to resolve bare names via PATH / App Paths and to
+    // open protocol URIs like ms-settings:.
+    let mut cmd = if std::path::Path::new(&target).is_file() {
+        std::process::Command::new(&target)
+    } else if cfg!(windows) {
         let mut c = std::process::Command::new("cmd");
         // The empty "" is the window title that `start` would otherwise steal
         // from the first quoted argument.
