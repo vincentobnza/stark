@@ -25,3 +25,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sysinfo = "0.33"
 chrono = "0.4"
+
+[target.'cfg(windows)'.dependencies]
+# Global media keys: keybd_event reaches the shell, unlike SendKeys which only
+# reaches the focused window.
+windows = { version = "0.57", features = ["Win32_UI_Input_KeyboardAndMouse"] }

@@ -4,6 +4,7 @@ import { ApprovalPrompt } from "./components/ApprovalPrompt";
 import { Controls } from "./components/Controls";
 import { Orb } from "./components/Orb";
 import { Waveform } from "./components/Waveform";
+import { BootSequence } from "./components/BootSequence";
 import { useStark } from "./state/store";
 import { useStarkSession } from "./useStarkSession";
 
@@ -31,7 +32,15 @@ function Corners() {
 
 export default function App() {
   const { status, caption, streaming, error, pending } = useStark();
-  const { interrupt, interruptible, micOpen, level } = useStarkSession();
+  const {
+    interrupt,
+    interruptible,
+    micOpen,
+    level,
+    bootSteps,
+    bootDone,
+    dismissBoot,
+  } = useStarkSession();
 
   // No push-to-talk any more; speech starts a turn on its own. These keys only
   // cut the assistant off mid-sentence.
@@ -112,6 +121,8 @@ export default function App() {
           {error}
         </p>
       )}
+
+      <BootSequence steps={bootSteps} done={bootDone} onDismiss={dismissBoot} />
 
       <ApprovalPrompt />
     </div>

@@ -3,6 +3,8 @@ import { agent, refreshModels, selectBrain } from './agent'
 import { greeting } from './greeting'
 import { useStark } from './state/store'
 import { VoiceGate, speak, stopSpeaking, transcribe, waitForService } from './voice'
+import { readRoutine, runRoutine } from './core/routine'
+import type { StepProgress } from './core/routine'
 import type { VoiceEngine } from './voice'
 
 /** Aborting a turn is normal control flow, not an error worth showing. */
@@ -23,6 +25,8 @@ let greeted = false
 export function useStarkSession() {
   const [micOpen, setMicOpen] = useState(false)
   const [level, setLevel] = useState(0)
+  const [bootSteps, setBootSteps] = useState<StepProgress[]>([])
+  const [bootDone, setBootDone] = useState(false)
   const {
     status,
     setStatus,
@@ -161,24 +165,43 @@ export function useStarkSession() {
         return
       }
 
-      // Announce once. Read the engine from health rather than from state,
-      // which may not have applied the downgrade to `system` yet.
+      // Boot once per launch. Read the engine from health rather than from
+      // state, which may not have applied the downgrade to `system` yet.
       if (greeted) return
       greeted = true
       const hello = greeting()
-      setCaption({ kind: 'said', text: hello })
-      if (!settings.current.voiceReply) return
-
       const engine: VoiceEngine = health.tts_ready ? settings.current.voiceEngine : 'system'
-      setStatus('speaking')
-      instance.setMuted(true)
-      await speak(hello, {
-        engine,
-        onFallback: (reason) => setError(`Cloud voice failed, using OS voice - ${reason}`),
-      }).catch(() => {})
+
+      // Speaks a line and shows it, muting the gate so Stark does not hear
+      // itself. Honours the voice toggle by still showing the caption.
+      const say = async (text: string) => {
+        setCaption({ kind: 'said', text })
+        if (!settings.current.voiceReply) return
+        setStatus('speaking')
+        instance.setMuted(true)
+        await speak(text, {
+          engine,
+          onFallback: (reason) => setError(`Cloud voice failed, using OS voice - ${reason}`),
+        }).catch(() => {})
+        setStatus('idle')
+        instance.setMuted(false)
+      }
+
+      const routine = await readRoutine().catch(() => null)
       if (cancelled) return
-      setStatus('idle')
-      setTimeout(() => instance.setMuted(false), 350)
+
+      if (!routine?.enabled) {
+        await say(hello)
+        return
+      }
+
+      await runRoutine(routine, {
+        greeting: hello,
+        say,
+        onProgress: (steps) => setBootSteps(steps),
+      })
+      if (cancelled) return
+      setBootDone(true)
     })
 
     return () => {
@@ -191,5 +214,13 @@ export function useStarkSession() {
   /** Something is happening that the user can cut off. */
   const interruptible = status === 'thinking' || status === 'speaking'
 
-  return { interrupt, interruptible, micOpen, level }
+  return {
+    interrupt,
+    interruptible,
+    micOpen,
+    level,
+    bootSteps,
+    bootDone,
+    dismissBoot: () => setBootSteps([]),
+  }
 }
