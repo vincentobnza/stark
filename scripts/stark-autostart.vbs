@@ -11,7 +11,7 @@
 
 Option Explicit
 
-Dim sh, fso, repo, uv, exe, svcRunning
+Dim sh, fso, repo, uv, exe
 Set sh  = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
@@ -30,23 +30,15 @@ If Not fso.FileExists(exe) Then
     WScript.Quit 1
 End If
 
-' Skip the service if something is already serving :8756.
-svcRunning = False
-On Error Resume Next
-Dim http
-Set http = CreateObject("MSXML2.ServerXMLHTTP.6.0")
-http.SetTimeouts 800, 800, 800, 800
-http.Open "GET", "http://127.0.0.1:8756/health", False
-http.Send
-If Err.Number = 0 And http.Status = 200 Then svcRunning = True
-Err.Clear
-On Error GoTo 0
+' Start the speech service. No "is it already running" probe on purpose: if
+' something already holds :8756 this second uvicorn simply fails to bind and
+' exits, which is harmless and self-correcting. A probe would only add a
+' failure mode of its own.
+sh.CurrentDirectory = repo
+' 0 = hidden window, False = do not wait for it to exit.
+sh.Run """" & uv & """ run --project services\ai uvicorn stark_ai.main:app " & _
+       "--host 127.0.0.1 --port 8756", 0, False
 
-If Not svcRunning Then
-    sh.CurrentDirectory = repo
-    ' 0 = hidden window, False = do not wait for it to exit.
-    sh.Run """" & uv & """ run --project services\ai uvicorn stark_ai.main:app " & _
-           "--host 127.0.0.1 --port 8756", 0, False
-End If
-
+' The app polls /health for ~20s, so it does not matter that the service is
+' still importing when this returns.
 sh.Run """" & exe & """", 0, False
