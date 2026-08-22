@@ -131,6 +131,55 @@ Delete that shortcut to undo. Nothing is written to the registry.
 Start order does not actually matter: the app polls `/health` for ~20s before
 giving up, so whichever process wins the race at login, they find each other.
 
+## Boot routine
+
+On launch Stark greets you, then opens your workspace, narrating each step.
+Config lives at `%APPDATA%\dev.vincent.stark\routine.json` — created with
+defaults on first run, hand-editable, and reloaded every launch. A file that no
+longer parses falls back to defaults rather than bricking the boot.
+
+Each step launches, then **waits for its process to actually appear** (up to
+30s) before the next one starts. Sequential, not parallel: ten apps at once
+makes Windows thrash and they all come up slower.
+
+| Field | Meaning |
+| --- | --- |
+| `command` | executable, full path, or protocol (`ms-settings`) |
+| `await_process` | process to wait for, e.g. `Cursor.exe` |
+| `media_play` | press Play/Pause once it is up (resumes Spotify) |
+| `say` | spoken before the step; defaults to "Opening {label}" |
+
+The mic is **muted for the entire sequence**. Between steps it would otherwise
+hear Stark's own narration, the apps launching, and the music it just started —
+each of which became a spurious command.
+
+Two machine-specific notes baked into the defaults: `code` on this machine
+resolves to **Cursor**, not VS Code (so the editor step points at Cursor
+explicitly), and Postman has no PATH or App Paths entry, so it needs its full
+path.
+
+## Accuracy on a weak model
+
+The local model is 3B. Rather than hoping it improves, most requests never
+reach it.
+
+**Wake word.** With an always-on mic in a room playing music, every transcribed
+lyric became a command — this is genuinely how `send_notification("Goodbye")`
+happened. Utterances now need "Stark" or "Jarvis" (plus the variants Whisper
+actually produces: *start, spark, stock, dark*), except within 25s of an
+accepted turn so a real conversation flows.
+
+**Deterministic router.** [core/intents.ts](apps/desktop/src/core/intents.ts)
+handles open/time/memory/play/clipboard with regexes. Microseconds instead of
+seconds, and it cannot pick the wrong tool. Only genuine conversation reaches
+the model.
+
+**App registry.** [core/apps.ts](apps/desktop/src/core/apps.ts) is the whitelist
+of launchable apps and their spoken aliases. A small model invents software
+(`open_app("zoom")`, `open_app("may")`); those used to no-op silently and get
+reported as success. Now both the router and the tool resolve through the
+registry and say what is actually installed.
+
 ## The tool system
 
 A capability is a tool. Adding one means adding a file, not touching the agent.
