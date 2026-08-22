@@ -54,17 +54,18 @@ impl Default for Routine {
             speak_summary: true,
             steps: vec![
                 RoutineStep {
-                    id: "vscode".into(),
-                    label: "VS Code".into(),
+                    id: "editor".into(),
+                    label: "Cursor".into(),
                     enabled: true,
-                    // Explicit path: bare `code` on this machine resolves to
-                    // Cursor's shim, which would open the wrong editor.
-                    command: r"C:\Users\vince\AppData\Local\Programs\Microsoft VS Code\Code.exe"
-                        .into(),
+                    // Cursor, not VS Code: it is the editor actually in use here,
+                    // and bare `code` on this machine already resolves to Cursor's
+                    // shim. Swap this path for
+                    // ...\Programs\Microsoft VS Code\Code.exe to use VS Code.
+                    command: r"C:\Users\vince\AppData\Local\Programs\cursor\Cursor.exe".into(),
                     args: vec![r"C:\Users\vince\dev\stark".into()],
-                    await_process: Some("Code.exe".into()),
+                    await_process: Some("Cursor.exe".into()),
                     media_play: false,
-                    say: Some("Opening VS Code.".into()),
+                    say: Some("Opening Cursor with the stark project.".into()),
                 },
                 RoutineStep {
                     id: "chrome".into(),

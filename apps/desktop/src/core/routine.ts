@@ -41,7 +41,8 @@ export const writeRoutine = (routine: Routine): Promise<string> =>
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /** Poll until the process appears, or give up. Returns whether it showed up. */
-async function awaitProcess(name: string, timeoutMs = 12_000): Promise<boolean> {
+// Heavy Electron apps (Postman is 206MB) routinely need >12s cold.
+async function awaitProcess(name: string, timeoutMs = 30_000): Promise<boolean> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     if (await invoke<boolean>('process_running', { name })) return true

@@ -4,6 +4,7 @@ import { greeting } from './greeting'
 import { useStark } from './state/store'
 import { VoiceGate, speak, stopSpeaking, transcribe, waitForService } from './voice'
 import { readRoutine, runRoutine } from './core/routine'
+import { addressedToStark, tryIntent } from './core/intents'
 import type { VoiceEngine } from './voice'
 
 /** Aborting a turn is normal control flow, not an error worth showing. */
@@ -42,6 +43,8 @@ export function useStarkSession() {
   const abort = useRef<AbortController | null>(null)
   /** Bumped whenever a turn is superseded, so a stale turn cannot reset the UI. */
   const turn = useRef(0)
+  /** Until this timestamp, utterances count as addressed without the wake word. */
+  const followUpUntil = useRef(0)
 
   // Latest values, readable from the gate callbacks without re-creating the gate.
   const settings = useRef({ voiceReply, voiceEngine, autoApprove })
@@ -105,13 +108,40 @@ export function useStarkSession() {
         const text = await transcribe(audio)
         // Whisper returns nothing for a cough or a door. Not an error.
         if (!text) return setStatus('idle')
-        await run(text)
+
+        const { addressed, command } = addressedToStark(text, followUpUntil.current)
+        if (!addressed) {
+          // Overheard, not asked. Show it so it is obvious why nothing happened.
+          setCaption({ kind: 'heard', text: `(ignored) ${text}` })
+          return setStatus('idle')
+        }
+        // A real exchange has started; allow follow-ups without the name.
+        followUpUntil.current = Date.now() + 25_000
+        setCaption({ kind: 'heard', text: command })
+
+        // Deterministic first: the common commands never reach the model, so
+        // they are instant and cannot be got wrong.
+        const direct = await tryIntent(command)
+        if (direct) {
+          setCaption({ kind: 'said', text: direct })
+          if (settings.current.voiceReply) {
+            setStatus('speaking')
+            gate.current?.setMuted(true)
+            await speak(direct, { engine: settings.current.voiceEngine }).catch(() => {})
+            setTimeout(() => gate.current?.setMuted(false), 350)
+          }
+          followUpUntil.current = Date.now() + 25_000
+          return setStatus('idle')
+        }
+
+        await run(command)
+        followUpUntil.current = Date.now() + 25_000
       } catch (err) {
         if (!isAbort(err)) setError(err instanceof Error ? err.message : String(err))
         setStatus('idle')
       }
     },
-    [run, setStatus, setError],
+    [run, setStatus, setError, setCaption],
   )
 
   const utteranceRef = useRef(handleUtterance)
@@ -171,29 +201,36 @@ export function useStarkSession() {
 
       // Speaks a line and shows it, muting the gate so Stark does not hear
       // itself. Honours the voice toggle by still showing the caption.
+      // Deliberately does not unmute: the caller owns the mute window.
       const say = async (text: string) => {
         setCaption({ kind: 'said', text })
         if (!settings.current.voiceReply) return
         setStatus('speaking')
-        instance.setMuted(true)
         await speak(text, {
           engine,
           onFallback: (reason) => setError(`Cloud voice failed, using OS voice - ${reason}`),
         }).catch(() => {})
         setStatus('idle')
-        instance.setMuted(false)
       }
 
       const routine = await readRoutine().catch(() => null)
       if (cancelled) return
 
-      if (!routine?.enabled) {
-        await say(hello)
-        return
+      // Deaf for the whole boot sequence. Between steps the mic would otherwise
+      // pick up Stark's own narration, the apps it just launched, and the music
+      // it just started — every one of which became a spurious command.
+      instance.setMuted(true)
+      try {
+        if (!routine?.enabled) {
+          await say(hello)
+        } else {
+          // Progress is spoken, not drawn, so the callback is a no-op here.
+          await runRoutine(routine, { greeting: hello, say, onProgress: () => {} })
+        }
+      } finally {
+        // Let the last words and the app-launch noise die down first.
+        setTimeout(() => instance.setMuted(false), 1200)
       }
-
-      // Progress is spoken, not drawn, so the callback is a no-op here.
-      await runRoutine(routine, { greeting: hello, say, onProgress: () => {} })
     })
 
     return () => {

@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { z } from 'zod'
 import { defineTool } from '../types'
+import { APP_NAMES, resolveApp } from '../../apps'
 
 export const getSystemInfo = defineTool({
   name: 'get_system_info',
@@ -14,16 +15,23 @@ export const getSystemInfo = defineTool({
 
 export const openApp = defineTool({
   name: 'open_app',
-  description:
-    'Launch a desktop application by name or executable, e.g. "code", "chrome", "notepad", "spotify".',
+  description: `Launch one of the installed desktop applications. Valid names: ${APP_NAMES}. Do not invent an application that is not on this list.`,
   params: z.object({
-    name: z.string().min(1).describe('Application name or executable, without a path'),
+    name: z.string().min(1).describe(`One of: ${APP_NAMES}`),
     args: z.array(z.string()).default([]).describe('Optional command-line arguments'),
   }),
   risk: 'confirm',
-  preview: ({ name, args }) =>
-    `Launch ${name}${args.length ? ` with ${args.join(' ')}` : ''}`,
-  execute: (args) => invoke('open_app', args),
+  preview: ({ name }) => `Launch ${resolveApp(name)?.label ?? name}`,
+  execute: async ({ name, args }) => {
+    // Resolve through the registry rather than trusting the model. A small
+    // model invents apps ("zoom", "may"); launching those silently no-ops and
+    // it then reports success. An explicit failure is far more useful.
+    const app = resolveApp(name)
+    if (!app) {
+      throw new Error(`Unknown application "${name}". Installed apps: ${APP_NAMES}`)
+    }
+    return invoke('open_app', { name: app.command, args })
+  },
 })
 
 export const sendNotification = defineTool({
