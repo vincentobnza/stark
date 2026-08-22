@@ -193,6 +193,18 @@ so CPU inference at ~17-20 tok/s), replying to "hey there" with 10 tools loaded:
 | `qwen3:4b` (reasoning) | **77.9 s** | 639 | *empty* — all of it was thinking |
 | `qwen2.5:3b` (instruct) | **2.1 s** | 10 | "Hello, how may I assist you today?" |
 
+### The context trap
+
+**Ollama defaults `num_ctx` to 4096** regardless of what the model advertises
+(`qwen2.5:3b` supports 32768). The system prompt plus ten tool schemas is ~660
+tokens before you say anything; add history and tool results — file contents,
+system-info JSON — and 4096 overflows within a couple of turns.
+
+Overflow is silent. The model loses its instructions and starts answering
+incoherently, which reads as "the assistant got worse the longer I use it".
+The client pins `num_ctx: 8192`; verify with `ollama ps`, which prints the
+context actually in use.
+
 The lesson: **a hybrid reasoning model is the wrong tool for a voice assistant.**
 `qwen3:4b` spent 2,791 characters of thinking on a greeting before saying a word,
 and it wrongly called `send_notification` for it. Two non-fixes:

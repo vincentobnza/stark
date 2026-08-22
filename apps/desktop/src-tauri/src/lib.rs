@@ -37,7 +37,15 @@ pub fn run() {
                 .build(),
         )
         .setup(move |app| {
-            app.global_shortcut().register(summon.clone())?;
+            // Losing the hotkey must not stop Stark from starting. It is taken
+            // whenever a previous instance is still alive or any other app owns
+            // the same chord, and propagating that error panics the whole app
+            // during setup — the assistant silently fails to launch.
+            let shortcuts = app.global_shortcut();
+            let _ = shortcuts.unregister(summon.clone());
+            if let Err(err) = shortcuts.register(summon.clone()) {
+                eprintln!("Ctrl+Alt+Space unavailable ({err}); the window still works.");
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

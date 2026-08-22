@@ -78,8 +78,15 @@ export class OllamaProvider implements LLMProvider {
         // Keep the model resident so turn two does not pay the load cost again.
         keep_alive: '30m',
         options: {
-          // A spoken reply has no business being long, and on CPU every token
-          // is ~50ms of silence. This is the single biggest latency lever.
+          // Ollama defaults to 4096 regardless of what the model supports.
+          // The system prompt plus ten tool schemas is ~660 tokens before the
+          // user says anything; add history and tool results (file contents,
+          // system info JSON) and 4096 overflows within a couple of turns.
+          // Overflow is silent — the model loses its instructions and starts
+          // answering incoherently, which reads as "the AI got worse".
+          num_ctx: 8192,
+          // A spoken reply has no business being long, and every token is
+          // ~50ms of silence. This is the single biggest latency lever.
           num_predict: 220,
           temperature: 0.6,
           top_p: 0.9,

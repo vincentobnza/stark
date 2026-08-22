@@ -48,16 +48,34 @@ pub fn get_system_info() -> SystemInfo {
     }
 }
 
+/// Several built-in Windows apps are URI protocols, not executables. `start`
+/// resolves `ms-settings:` but reports "cannot find the file" for `ms-settings`,
+/// and a model asked to "open settings" naturally omits the colon.
+#[cfg(windows)]
+fn windows_target(name: &str) -> String {
+    let looks_like_protocol = name.starts_with("ms-") || name.starts_with("shell:");
+    if looks_like_protocol && !name.contains(':') {
+        format!("{name}:")
+    } else {
+        name.to_string()
+    }
+}
+
 #[tauri::command(rename_all = "snake_case")]
 pub fn open_app(name: String, args: Vec<String>) -> Result<String, String> {
+    #[cfg(windows)]
+    let target = windows_target(&name);
+    #[cfg(not(windows))]
+    let target = name.clone();
+
     let mut cmd = if cfg!(windows) {
         let mut c = std::process::Command::new("cmd");
         // The empty "" is the window title that `start` would otherwise steal
         // from the first quoted argument.
-        c.args(["/C", "start", "", name.as_str()]);
+        c.args(["/C", "start", "", target.as_str()]);
         c
     } else {
-        std::process::Command::new(&name)
+        std::process::Command::new(&target)
     };
     cmd.args(&args);
     hide_window(&mut cmd);
