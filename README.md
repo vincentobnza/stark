@@ -100,6 +100,37 @@ indistinguishable from a quiet room. With no button left to press, the gate
 resumes the context explicitly, warns if it stays suspended, and retries on any
 click or keypress.
 
+## Building and auto-start
+
+```powershell
+pnpm build      # frontend + release binary
+```
+
+The standalone binary lands at
+`apps/desktop/src-tauri/target/release/stark.exe`. It needs the WebView2
+runtime, which ships with Windows 11.
+
+**The exe is not self-sufficient.** Stark is voice-only, so the Python service
+on `:8756` is the only input path — launching just the exe at login gives you a
+dead mic. Two other dependencies: Ollama on `:11434` for the local brain (its
+installer already runs at login), and, if you want the cloud brain, credentials
+in `services/ai/.env`.
+
+[scripts/stark-autostart.vbs](scripts/stark-autostart.vbs) starts the service
+and the app together, with no console windows. It skips the service if
+something is already serving `:8756`, so running it twice is harmless.
+
+To install, put a shortcut to it in:
+
+```
+%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup
+```
+
+Delete that shortcut to undo. Nothing is written to the registry.
+
+Start order does not actually matter: the app polls `/health` for ~20s before
+giving up, so whichever process wins the race at login, they find each other.
+
 ## The tool system
 
 A capability is a tool. Adding one means adding a file, not touching the agent.

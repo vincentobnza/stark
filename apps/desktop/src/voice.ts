@@ -30,6 +30,27 @@ export async function serviceHealth(): Promise<ServiceHealth | null> {
   }
 }
 
+/**
+ * Poll until the speech service answers.
+ *
+ * At login both processes start at once, and the Python service needs a few
+ * seconds to import its dependencies. Checking once would leave Stark
+ * permanently mic-dead purely because it won the race.
+ */
+export async function waitForService(
+  attempts = 20,
+  gapMs = 1000,
+  onWaiting?: (attempt: number) => void,
+): Promise<ServiceHealth | null> {
+  for (let i = 0; i < attempts; i++) {
+    const health = await serviceHealth()
+    if (health) return health
+    onWaiting?.(i + 1)
+    await new Promise((r) => setTimeout(r, gapMs))
+  }
+  return null
+}
+
 export interface GateEvents {
   /** Speech detected; capture has begun. */
   onSpeechStart(): void

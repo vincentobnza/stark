@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { agent, refreshModels, selectBrain } from './agent'
 import { greeting } from './greeting'
 import { useStark } from './state/store'
-import { VoiceGate, serviceHealth, speak, stopSpeaking, transcribe } from './voice'
+import { VoiceGate, speak, stopSpeaking, transcribe, waitForService } from './voice'
 import type { VoiceEngine } from './voice'
 
 /** Aborting a turn is normal control flow, not an error worth showing. */
@@ -131,8 +131,12 @@ export function useStarkSession() {
     })
     gate.current = instance
 
-    void serviceHealth().then(async (health) => {
+    void waitForService(20, 1000, (attempt) => {
+      // Only speak up once it is clearly late, not on the first miss.
+      if (attempt === 3) setError('Waiting for the speech service on :8756...')
+    }).then(async (health) => {
       if (cancelled) return
+      if (health) setError(null)
       setTtsReady(health?.tts_ready ?? false)
       setLlmReady(health?.llm_ready ?? false)
       if (health && !health.tts_ready) setVoiceEngine('system')

@@ -1,24 +1,24 @@
-import { useEffect } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
-import { ApprovalPrompt } from './components/ApprovalPrompt'
-import { Controls } from './components/Controls'
-import { Orb } from './components/Orb'
-import { Waveform } from './components/Waveform'
-import { useStark } from './state/store'
-import { useStarkSession } from './useStarkSession'
+import { useEffect } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { ApprovalPrompt } from "./components/ApprovalPrompt";
+import { Controls } from "./components/Controls";
+import { Orb } from "./components/Orb";
+import { Waveform } from "./components/Waveform";
+import { useStark } from "./state/store";
+import { useStarkSession } from "./useStarkSession";
 
 const HINT: Record<string, string> = {
-  idle: 'just speak',
-  listening: 'listening',
-  transcribing: 'transcribing',
-  thinking: 'thinking',
-  awaiting: 'awaiting approval',
-  speaking: 'speaking',
-}
+  idle: "just speak",
+  listening: "listening",
+  transcribing: "transcribing",
+  thinking: "thinking",
+  awaiting: "awaiting approval",
+  speaking: "speaking",
+};
 
 /** Corner brackets. Cheap way to read as an instrument panel, not a chat card. */
 function Corners() {
-  const edge = 'pointer-events-none absolute size-3 border-white/20'
+  const edge = "pointer-events-none absolute size-3 border-white/20";
   return (
     <>
       <div className={`${edge} top-0 left-0 border-t border-l`} />
@@ -26,30 +26,30 @@ function Corners() {
       <div className={`${edge} bottom-0 left-0 border-b border-l`} />
       <div className={`${edge} bottom-0 right-0 border-b border-r`} />
     </>
-  )
+  );
 }
 
 export default function App() {
-  const { status, caption, streaming, error, pending } = useStark()
-  const { interrupt, interruptible, micOpen, level } = useStarkSession()
+  const { status, caption, streaming, error, pending } = useStark();
+  const { interrupt, interruptible, micOpen, level } = useStarkSession();
 
   // No push-to-talk any more; speech starts a turn on its own. These keys only
   // cut the assistant off mid-sentence.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // The approval prompt owns Enter and Escape while it is open.
-      if (pending || !interruptible) return
-      if (e.key !== 'Enter' && e.key !== 'Escape') return
-      e.preventDefault()
-      interrupt()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [interrupt, interruptible, pending])
+      if (pending || !interruptible) return;
+      if (e.key !== "Enter" && e.key !== "Escape") return;
+      e.preventDefault();
+      interrupt();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [interrupt, interruptible, pending]);
 
-  const line = streaming || caption?.text || ''
-  const kind = streaming ? 'said' : caption?.kind
-  const prefix = kind === 'heard' ? '> ' : kind === 'tool' ? '$ ' : ''
+  const line = streaming || caption?.text || "";
+  const kind = streaming ? "said" : caption?.kind;
+  const prefix = kind === "heard" ? "> " : kind === "tool" ? "$ " : "";
 
   return (
     <div className="relative h-full w-full overflow-hidden border border-white/12 bg-[#0b0b0d]">
@@ -59,7 +59,7 @@ export default function App() {
         className="absolute inset-0"
         style={{
           background:
-            'radial-gradient(120% 100% at 50% 40%, #18181b 0%, #0d0d0f 48%, #050506 100%)',
+            "radial-gradient(120% 100% at 50% 40%, #18181b 0%, #0d0d0f 48%, #050506 100%)",
         }}
       />
 
@@ -83,11 +83,11 @@ export default function App() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
               className={`line-clamp-2 text-center text-[12px] leading-relaxed ${
-                kind === 'tool'
-                  ? 'text-[11px] tracking-wide text-teal-300/70'
-                  : kind === 'heard'
-                    ? 'text-white/35'
-                    : 'text-white/85'
+                kind === "tool"
+                  ? "text-[11px] tracking-wide text-teal-300/70"
+                  : kind === "heard"
+                    ? "text-white/35"
+                    : "text-white/85"
               }`}
             >
               {line ? (
@@ -96,7 +96,7 @@ export default function App() {
                   {line}
                 </>
               ) : (
-                <span className="text-[10px] tracking-[0.28em] text-white/25 uppercase">
+                <span className="text-[10px] tracking-tight text-white/25 uppercase">
                   {HINT[status]}
                 </span>
               )}
@@ -115,5 +115,5 @@ export default function App() {
 
       <ApprovalPrompt />
     </div>
-  )
+  );
 }
