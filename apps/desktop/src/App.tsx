@@ -122,8 +122,6 @@ export default function App() {
         </p>
       )}
 
-      <BootSequence steps={bootSteps} done={bootDone} onDismiss={dismissBoot} />
-
       <ApprovalPrompt />
     </div>
   );
