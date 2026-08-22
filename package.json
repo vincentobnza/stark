@@ -1,0 +1,17 @@
+{
+  "name": "stark",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter stark-desktop tauri dev",
+    "dev:web": "pnpm --filter stark-desktop dev:vite",
+    "build": "pnpm --filter stark-desktop tauri build",
+    "ai": "uv run --project services/ai uvicorn stark_ai.main:app --host 127.0.0.1 --port 8756 --reload",
+    "typecheck": "pnpm -r exec tsc --noEmit"
+  },
+  "packageManager": "pnpm@11.18.0",
+  "devDependencies": {
+    "puppeteer-core": "^25.8.0"
+  }
+}

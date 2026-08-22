@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Tauri / Rust
+target/
+apps/desktop/src-tauri/gen/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Local data & secrets
+.env
+.env.local
+data/
+*.db
+*.sqlite3
+models/

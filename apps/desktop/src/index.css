@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  /* Terminal type. All of these are installed on this machine. */
+  --font-mono:
+    "JetBrains Mono", "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace,
+    monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: transparent;
+  overflow: hidden;
+  /* Everything in this app is monospace; there is no prose here. */
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+  color: #d9d9dc;
+  user-select: none;
+  cursor: default;
+}
+
+/* Text worth copying back out, e.g. the command in an approval prompt. */
+.selectable {
+  user-select: text;
+  cursor: text;
+}
