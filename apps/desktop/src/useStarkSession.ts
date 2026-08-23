@@ -147,6 +147,20 @@ export function useStarkSession() {
   const utteranceRef = useRef(handleUtterance)
   utteranceRef.current = handleUtterance
 
+  // Ollama comes and goes: it has its own Startup entry (so it races Stark at
+  // login), and it can be stopped or restarted at any time. A one-shot check at
+  // startup leaves "unreachable" on screen forever once it recovers, so keep
+  // re-checking while it is down and clear the notice when it returns.
+  const { brain, models } = useStark()
+  useEffect(() => {
+    if (brain !== 'ollama' || models.length > 0) return
+    const timer = setInterval(() => {
+      // One attempt per tick; the interval is the retry.
+      void refreshModels(1, 0)
+    }, 8000)
+    return () => clearInterval(timer)
+  }, [brain, models.length])
+
   // One gate for the lifetime of the app.
   useEffect(() => {
     let cancelled = false

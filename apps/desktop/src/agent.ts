@@ -116,30 +116,40 @@ export function selectBrain(brain: Brain): void {
   useStark.getState().setBrain(brain)
 }
 
-/** Populate the model picker; also doubles as an Ollama reachability check. */
-export async function refreshModels(): Promise<void> {
+/**
+ * Populate the model picker; also doubles as an Ollama reachability check.
+ *
+ * Retries because at login Ollama and Stark start at the same time (both have
+ * Startup entries) and Ollama takes a few seconds to bind :11434. Checking once
+ * left the HUD showing "unreachable" forever even though it came up right after.
+ */
+export async function refreshModels(attempts = 15, gapMs = 1000): Promise<void> {
   const { setModels, setError, model, brain } = useStark.getState()
   // Only the local brain has models to choose between.
   if (brain === 'claude') {
     setModels([claude.model])
     return
   }
-  try {
-    const models = await ollama.listModels()
-    setModels(models)
-    if (models.length === 0) {
-      setError('No models installed. Run: ollama pull qwen2.5:3b')
-    } else if (!models.includes(model)) {
-      // Fall back to something that actually exists.
-      selectModel(models[0])
-      setError(null)
-    } else {
-      setError(null)
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const models = await ollama.listModels()
+      setModels(models)
+      if (models.length === 0) {
+        setError('No models installed. Run: ollama pull qwen2.5:3b')
+      } else {
+        // Fall back to something that actually exists.
+        if (!models.includes(model)) selectModel(models[0])
+        setError(null)
+      }
+      return
+    } catch {
+      // Only complain once it is clearly not just a slow start.
+      if (i === 4) setError('Waiting for Ollama on :11434...')
+      await new Promise((r) => setTimeout(r, gapMs))
     }
-  } catch {
-    setModels([])
-    setError('Ollama unreachable on :11434')
   }
+  setModels([])
+  setError('Ollama unreachable on :11434')
 }
 
 export { registry }
