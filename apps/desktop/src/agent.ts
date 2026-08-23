@@ -130,6 +130,7 @@ export async function refreshModels(attempts = 15, gapMs = 1000): Promise<void> 
     setModels([claude.model])
     return
   }
+  let last: string | null = null
   for (let i = 0; i < attempts; i++) {
     try {
       const models = await ollama.listModels()
@@ -142,14 +143,17 @@ export async function refreshModels(attempts = 15, gapMs = 1000): Promise<void> 
         setError(null)
       }
       return
-    } catch {
+    } catch (err) {
+      last = err instanceof Error ? err.message : String(err)
       // Only complain once it is clearly not just a slow start.
       if (i === 4) setError('Waiting for Ollama on :11434...')
-      await new Promise((r) => setTimeout(r, gapMs))
+      if (gapMs > 0) await new Promise((r) => setTimeout(r, gapMs))
     }
   }
   setModels([])
-  setError('Ollama unreachable on :11434')
+  // Include the real reason: "connection refused" and "not allowed by scope"
+  // need completely different fixes, and a generic string hides which it is.
+  setError(`Ollama: ${last ?? 'unreachable on :11434'}`)
 }
 
 export { registry }
