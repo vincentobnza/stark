@@ -229,12 +229,41 @@ effect on the very next tool call rather than after a restart.
 
 ## The brain
 
-Two, switchable at runtime by the `claude` / `local` toggle in the hover controls.
+Three, cycled by the brain button in the hover controls. Only the ones the
+service has credentials for are offered.
 
 | Brain | Where | Notes |
 | --- | --- | --- |
 | `local` | Ollama on this machine | Free, private, offline. A 3B model has a hard ceiling on tool-selection accuracy. |
 | `claude` | Claude Opus 5, via the Python service | Frontier reasoning, and *faster* than local — see below. Costs per turn; the conversation leaves the machine. |
+| `kimi` | Kimi K3 on NVIDIA NIM, via the Python service | Very capable and free, but see the latency measurement below. Not the default for that reason. |
+
+### Kimi K3 is unusable for voice, and the reason is not the model
+
+`NVIDIA_API_KEY` in `services/ai/.env` enables it. The integration is complete —
+OpenAI-compatible, tool calling verified, chain-of-thought stripped — but
+measured on this account:
+
+| Request | Time to first token | Total | Tokens |
+| --- | --- | --- | --- |
+| "Say exactly: OK" | — | 189s | 62 |
+| "what time is it" | **154s** | 157s | 81 |
+| "how much memory" (with tools) | — | 239s | 55 |
+
+Generation itself is fine: 81 tokens arrived in the ~3s *after* the first byte,
+roughly 30 tok/s. The cost is **~2.5 minutes of queueing before generation
+starts** on the free tier. For comparison the local 3B answers a greeting in
+2.1s, so Kimi is ~75x slower end to end despite being the better model.
+
+It is wired up and selectable because the work is done and a paid NIM tier or a
+different host would change the picture entirely. It is not the default because
+a voice assistant that takes four minutes to answer is not an assistant.
+
+Two implementation notes: Kimi streams its chain of thought in
+`reasoning_content`, which [kimi.py](services/ai/src/stark_ai/kimi.py) drops
+rather than speaking aloud; and the agent loop allows up to 12 tool steps, so a
+multi-step task on this brain could run for the better part of an hour —
+`Enter` or `Escape` cancels it.
 
 Set `ANTHROPIC_API_KEY` in `services/ai/.env` (or run `ant auth login`, which
 stores a profile the SDK reads automatically) and restart `pnpm ai`. The app

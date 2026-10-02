@@ -15,7 +15,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-opener = "2"
 tauri-plugin-http = "2"
 tauri-plugin-clipboard-manager = "2"
@@ -29,4 +29,10 @@ chrono = "0.4"
 [target.'cfg(windows)'.dependencies]
 # Global media keys: keybd_event reaches the shell, unlike SendKeys which only
 # reaches the focused window.
-windows = { version = "0.57", features = ["Win32_UI_Input_KeyboardAndMouse"] }
+windows = { version = "0.57", features = [
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Foundation",
+    "Win32_System_Com",
+] }

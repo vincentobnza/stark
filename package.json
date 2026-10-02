@@ -9,7 +9,8 @@
     "build": "pnpm --filter stark-desktop tauri build",
     "ai": "uv run --project services/ai uvicorn stark_ai.main:app --host 127.0.0.1 --port 8756 --reload",
     "typecheck": "pnpm -r exec tsc --noEmit",
-    "build:exe": "pnpm --filter stark-desktop tauri build --no-bundle"
+    "build:exe": "pnpm --filter stark-desktop tauri build --no-bundle",
+    "install:app": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install.ps1"
   },
   "packageManager": "pnpm@11.18.0",
   "devDependencies": {

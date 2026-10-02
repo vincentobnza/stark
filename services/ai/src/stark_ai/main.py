@@ -11,6 +11,7 @@ import tempfile
 
 from typing import Any
 
+import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -21,7 +22,8 @@ from pydantic import BaseModel, Field
 # services/ai/.env — keys live on disk, never in the desktop bundle.
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
-from .llm import ClaudeBrain  # noqa: E402  (must follow load_dotenv)
+from .kimi import KimiBrain  # noqa: E402  (must follow load_dotenv)
+from .llm import ClaudeBrain  # noqa: E402
 from .stt import Transcriber  # noqa: E402
 from .tts import ElevenLabs  # noqa: E402
 
@@ -42,6 +44,7 @@ app.add_middleware(
 transcriber = Transcriber()
 eleven = ElevenLabs()
 brain = ClaudeBrain()
+kimi = KimiBrain()
 
 
 class SpeakRequest(BaseModel):
@@ -66,7 +69,55 @@ def health() -> dict[str, object]:
         "llm_ready": brain.configured,
         "llm_model": brain.model if brain.configured else None,
         "llm_fast": brain.fast,
+        "kimi_ready": kimi.configured,
+        "kimi_model": kimi.model if kimi.configured else None,
     }
+
+
+OLLAMA = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")
+
+
+@app.get("/ollama/tags")
+async def ollama_tags() -> dict[str, Any]:
+    """Proxy Ollama's model list.
+
+    The desktop app reaches Ollama through here rather than directly: Ollama
+    only sends CORS headers for origins it knows, and a packaged Tauri app is
+    `http://tauri.localhost`, which it rejects. This service already allows any
+    origin, so one plain fetch works in both dev and the packaged build.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            res = await client.get(f"{OLLAMA}/api/tags")
+        res.raise_for_status()
+        return res.json()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"{type(exc).__name__}: {exc}") from exc
+
+
+@app.post("/ollama/chat")
+async def ollama_chat(body: dict[str, Any]) -> dict[str, Any]:
+    """One non-streaming turn from the local model."""
+    payload = {**body, "stream": False}
+    try:
+        # Generous: a cold model load plus generation on CPU is genuinely slow.
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            res = await client.post(f"{OLLAMA}/api/chat", json=payload)
+        res.raise_for_status()
+        return res.json()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"{type(exc).__name__}: {exc}") from exc
+
+
+@app.post("/kimi/chat")
+async def kimi_chat(body: ChatRequest) -> dict[str, Any]:
+    """One assistant turn from Kimi K3 via NVIDIA NIM."""
+    if not kimi.configured:
+        raise HTTPException(status_code=503, detail="NVIDIA_API_KEY is not set")
+    try:
+        return await kimi.chat(body.messages, body.tools)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"{type(exc).__name__}: {exc}") from exc
 
 
 @app.post("/llm/chat")

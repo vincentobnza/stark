@@ -1,13 +1,14 @@
 import { Agent } from './core/agent/loop'
-import { ClaudeProvider, OllamaProvider } from './core/llm'
+import { ClaudeProvider, KimiProvider, OllamaProvider } from './core/llm'
 import type { ChatRequest, ChatResponse, LLMProvider } from './core/llm'
 import { createDefaultRegistry } from './core/tools/builtin'
 import { useStark } from './state/store'
 
-export type Brain = 'ollama' | 'claude'
+export type Brain = 'ollama' | 'claude' | 'kimi'
 
 const ollama = new OllamaProvider(useStark.getState().model)
 const claude = new ClaudeProvider()
+const kimi = new KimiProvider()
 
 /**
  * Delegates to whichever brain is selected. The Agent holds one provider
@@ -74,20 +75,24 @@ export const agent = new Agent({
     }),
 
   onMessage: (message) => {
-    const { setCaption, commitStreaming } = useStark.getState()
+    const { setCaption, commitStreaming, addMessage } = useStark.getState()
     switch (message.role) {
       case 'user':
         setCaption({ kind: 'heard', text: message.content })
+        // The composer already shows what was typed; only speech needs adding.
+        if (!useStark.getState().messages.some((m) => m.role === 'user' && m.text === message.content && Date.now() - m.at < 2000)) {
+          addMessage({ role: 'user', text: message.content })
+        }
         break
       case 'assistant':
         commitStreaming()
         // A pure tool-call turn has no prose worth showing.
-        if (message.content.trim()) setCaption({ kind: 'said', text: message.content })
+        if (message.content.trim()) {
+          setCaption({ kind: 'said', text: message.content })
+          addMessage({ role: 'assistant', text: message.content })
+        }
         break
       case 'tool': {
-        // A success keeps whatever the gate already showed (the action itself,
-        // which reads better than the tool name). A failure must not be
-        // swallowed — in a voice-only HUD nothing else would surface it.
         const failed =
           message.content.startsWith('Error:') || message.content.startsWith('Denied')
         setCaption({
@@ -95,6 +100,14 @@ export const agent = new Agent({
           text: failed
             ? `${message.toolName ?? 'tool'}: ${message.content}`
             : (useStark.getState().caption?.text ?? (message.toolName ?? 'tool')),
+        })
+        // Tool runs get their own row: in a chat the user should be able to see
+        // what was actually done, not just the sentence summarising it.
+        addMessage({
+          role: 'tool',
+          toolName: message.toolName,
+          text: message.content,
+          failed,
         })
         break
       }
@@ -110,9 +123,15 @@ export function selectModel(model: string): void {
   useStark.getState().setModel(model)
 }
 
+const BRAINS: Record<Brain, LLMProvider> = {
+  ollama,
+  claude,
+  kimi,
+}
+
 /** Swap brains mid-conversation. The transcript carries over. */
 export function selectBrain(brain: Brain): void {
-  provider.inner = brain === 'claude' ? claude : ollama
+  provider.inner = BRAINS[brain] ?? ollama
   useStark.getState().setBrain(brain)
 }
 

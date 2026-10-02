@@ -11,6 +11,17 @@ export interface Caption {
   text: string
 }
 
+/** One entry in the conversation. Tool runs appear inline, as their own row. */
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant' | 'tool'
+  text: string
+  /** Set on `tool` rows: which tool ran. */
+  toolName?: string
+  failed?: boolean
+  at: number
+}
+
 export interface PendingApproval {
   request: ApprovalRequest
   decide(decision: ApprovalDecision): void
@@ -19,7 +30,9 @@ export interface PendingApproval {
 interface StarkState {
   status: Status
   caption: Caption | null
-  /** Assistant text as it streams in; takes precedence over `caption`. */
+  /** The conversation, oldest first. */
+  messages: ChatMessage[]
+  /** Assistant text as it streams in; rendered as a live row at the end. */
   streaming: string
   pending: PendingApproval | null
   error: string | null
@@ -29,6 +42,8 @@ interface StarkState {
   brain: Brain
   /** Whether the service has Anthropic credentials, i.e. is Claude offerable. */
   llmReady: boolean
+  /** Whether the service has an NVIDIA key, i.e. is Kimi offerable. */
+  kimiReady: boolean
   voiceReply: boolean
   /** Which engine speaks the reply. */
   voiceEngine: VoiceEngine
@@ -39,6 +54,8 @@ interface StarkState {
 
   setStatus(status: Status): void
   setCaption(caption: Caption | null): void
+  addMessage(message: Omit<ChatMessage, 'id' | 'at'>): void
+  clearMessages(): void
   pushDelta(delta: string): void
   commitStreaming(): void
   setPending(pending: PendingApproval | null): void
@@ -47,14 +64,19 @@ interface StarkState {
   setModels(models: string[]): void
   setBrain(brain: Brain): void
   setLlmReady(ready: boolean): void
+  setKimiReady(ready: boolean): void
   toggleVoiceReply(): void
   toggleAutoApprove(): void
   setVoiceEngine(engine: VoiceEngine): void
   setTtsReady(ready: boolean): void
 }
 
+/** Monotonic row ids. Timestamps collide when tools resolve in the same tick. */
+let seq = 0
+
 export const useStark = create<StarkState>((set) => ({
   status: 'idle',
+  messages: [],
   caption: null,
   streaming: '',
   pending: null,
@@ -63,6 +85,7 @@ export const useStark = create<StarkState>((set) => ({
   models: [],
   brain: 'ollama',
   llmReady: false,
+  kimiReady: false,
   voiceReply: true,
   // Prefer the cloud voice; the session downgrades this if no key is configured.
   voiceEngine: 'elevenlabs',
@@ -71,6 +94,11 @@ export const useStark = create<StarkState>((set) => ({
 
   setStatus: (status) => set({ status }),
   setCaption: (caption) => set({ caption }),
+  addMessage: (message) =>
+    set((s) => ({
+      messages: [...s.messages, { ...message, id: `m${++seq}`, at: Date.now() }],
+    })),
+  clearMessages: () => set({ messages: [], caption: null, streaming: '' }),
   pushDelta: (delta) => set((s) => ({ streaming: s.streaming + delta })),
   commitStreaming: () => set({ streaming: '' }),
   setPending: (pending) => set({ pending }),
@@ -79,6 +107,7 @@ export const useStark = create<StarkState>((set) => ({
   setModels: (models) => set({ models }),
   setBrain: (brain) => set({ brain }),
   setLlmReady: (llmReady) => set({ llmReady }),
+  setKimiReady: (kimiReady) => set({ kimiReady }),
   toggleVoiceReply: () => set((s) => ({ voiceReply: !s.voiceReply })),
   toggleAutoApprove: () => set((s) => ({ autoApprove: !s.autoApprove })),
   setVoiceEngine: (voiceEngine) => set({ voiceEngine }),

@@ -54,28 +54,28 @@ impl Default for Routine {
             speak_summary: true,
             steps: vec![
                 RoutineStep {
-                    id: "editor".into(),
-                    label: "Cursor".into(),
+                    id: "editor-weblight".into(),
+                    label: "Cursor (weblight)".into(),
                     enabled: true,
                     // Cursor, not VS Code: it is the editor actually in use here,
                     // and bare `code` on this machine already resolves to Cursor's
                     // shim. Swap this path for
                     // ...\Programs\Microsoft VS Code\Code.exe to use VS Code.
                     command: r"C:\Users\vince\AppData\Local\Programs\cursor\Cursor.exe".into(),
-                    args: vec![r"C:\Users\vince\dev\stark".into()],
+                    args: vec![r"C:\Users\vince\dev\weblight".into()],
                     await_process: Some("Cursor.exe".into()),
                     media_play: false,
-                    say: Some("Opening Cursor with the stark project.".into()),
+                    say: Some("Opening Cursor with the weblight project.".into()),
                 },
                 RoutineStep {
                     id: "chrome".into(),
                     label: "Chrome".into(),
                     enabled: true,
                     command: "chrome".into(),
-                    args: vec![],
+                    args: vec!["https://sys.etere.com/Home/".into()],
                     await_process: Some("chrome.exe".into()),
                     media_play: false,
-                    say: Some("Opening Chrome.".into()),
+                    say: Some("Opening Chrome with Etere.".into()),
                 },
                 RoutineStep {
                     id: "spotify".into(),
@@ -87,27 +87,6 @@ impl Default for Routine {
                     // Resume whatever was last playing.
                     media_play: true,
                     say: Some("Opening Spotify. Resuming your music.".into()),
-                },
-                RoutineStep {
-                    id: "terminal".into(),
-                    label: "Terminal".into(),
-                    enabled: true,
-                    command: "wt".into(),
-                    args: vec![],
-                    await_process: Some("WindowsTerminal.exe".into()),
-                    media_play: false,
-                    say: Some("Opening your terminal.".into()),
-                },
-                RoutineStep {
-                    id: "postman".into(),
-                    label: "Postman".into(),
-                    enabled: true,
-                    // Not on PATH and no App Paths entry, so it must be explicit.
-                    command: r"C:\Users\vince\AppData\Local\Postman\Postman.exe".into(),
-                    args: vec![],
-                    await_process: Some("Postman.exe".into()),
-                    media_play: false,
-                    say: Some("Opening Postman.".into()),
                 },
             ],
         }

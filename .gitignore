@@ -19,3 +19,6 @@ data/
 *.db
 *.sqlite3
 models/
+
+# Scratch file holding a live NVIDIA key - never commit.
+KIMI-K3-API

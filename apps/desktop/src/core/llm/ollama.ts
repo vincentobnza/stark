@@ -1,28 +1,35 @@
-import { fetch } from '@tauri-apps/plugin-http'
 import type { ChatRequest, ChatResponse, LLMProvider, Message, ToolCall } from './types'
 
-const DEFAULT_HOST = 'http://127.0.0.1:11434'
+/**
+ * The local model, reached through the Python service rather than Ollama
+ * directly.
+ *
+ * Talking to `:11434` from the webview needs either Ollama's CORS allowlist to
+ * include the app's origin (it does not — a packaged Tauri app is
+ * `http://tauri.localhost`) or Tauri's HTTP plugin, which worked in dev and
+ * failed in the packaged build. The service already allows any origin and is a
+ * hard dependency anyway, so one plain fetch works identically in both.
+ */
+const AI_SERVICE = 'http://127.0.0.1:8756'
 
 interface OllamaToolCall {
   function: { name: string; arguments: Record<string, unknown> }
 }
 
-interface OllamaChunk {
+interface OllamaReply {
   message?: {
     role: string
     content?: string
-    /** Hybrid reasoning models stream their scratchpad here. Never spoken. */
+    /** Hybrid reasoning models put their scratchpad here. Never spoken. */
     thinking?: string
     tool_calls?: OllamaToolCall[]
   }
-  done?: boolean
   error?: string
 }
 
 /**
  * Some builds inline reasoning as `<think>…</think>` in `content` instead of
- * using the separate field. Strip closed blocks, and hide an unterminated one
- * until it closes.
+ * using the separate field. Strip closed blocks, and hide an unterminated one.
  */
 function stripReasoning(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>/g, '').replace(/<think>[\s\S]*$/, '')
@@ -51,22 +58,24 @@ export class OllamaProvider implements LLMProvider {
   /** Mutable so switching models does not throw away the conversation. */
   model: string
 
-  constructor(
-    model = 'qwen2.5:3b',
-    private readonly host: string = DEFAULT_HOST,
-  ) {
+  constructor(model = 'qwen2.5:3b') {
     this.model = model
   }
 
   async listModels(): Promise<string[]> {
-    const res = await fetch(`${this.host}/api/tags`)
-    if (!res.ok) throw new Error(`Ollama not reachable (${res.status})`)
+    const res = await fetch(`${AI_SERVICE}/ollama/tags`, {
+      signal: AbortSignal.timeout(6000),
+    })
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      throw new Error(`${res.status}: ${detail.slice(0, 140)}`)
+    }
     const body = (await res.json()) as { models?: { name: string }[] }
     return (body.models ?? []).map((m) => m.name)
   }
 
   async chat({ messages, tools, signal, onToken }: ChatRequest): Promise<ChatResponse> {
-    const res = await fetch(`${this.host}/api/chat`, {
+    const res = await fetch(`${AI_SERVICE}/ollama/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal,
@@ -74,19 +83,14 @@ export class OllamaProvider implements LLMProvider {
         model: this.model,
         messages: messages.map(toWire),
         tools: tools?.length ? tools : undefined,
-        stream: true,
-        // Keep the model resident so turn two does not pay the load cost again.
         keep_alive: '30m',
         options: {
-          // Ollama defaults to 4096 regardless of what the model supports.
-          // The system prompt plus ten tool schemas is ~660 tokens before the
-          // user says anything; add history and tool results (file contents,
-          // system info JSON) and 4096 overflows within a couple of turns.
-          // Overflow is silent — the model loses its instructions and starts
-          // answering incoherently, which reads as "the AI got worse".
+          // Ollama defaults to 4096 regardless of what the model supports. The
+          // system prompt plus tool schemas is ~660 tokens before the user says
+          // anything; overflow is silent and the model loses its instructions.
           num_ctx: 8192,
           // A spoken reply has no business being long, and every token is
-          // ~50ms of silence. This is the single biggest latency lever.
+          // ~50ms of silence.
           num_predict: 220,
           temperature: 0.6,
           top_p: 0.9,
@@ -95,51 +99,24 @@ export class OllamaProvider implements LLMProvider {
     })
 
     if (!res.ok) {
-      throw new Error(`Ollama chat failed (${res.status}): ${await res.text()}`)
-    }
-    if (!res.body) throw new Error('Ollama returned an empty response body')
-
-    let raw = ''
-    let emitted = 0
-    const toolCalls: ToolCall[] = []
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-
-    // NDJSON: one JSON object per line, and a chunk may split mid-line.
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-
-      for (const line of lines) {
-        if (!line.trim()) continue
-        const chunk = JSON.parse(line) as OllamaChunk
-        if (chunk.error) throw new Error(chunk.error)
-
-        const delta = chunk.message?.content
-        if (delta) {
-          raw += delta
-          // Emit only the newly visible text, so reasoning never reaches the UI.
-          const visible = stripReasoning(raw)
-          if (visible.length > emitted) {
-            onToken?.(visible.slice(emitted))
-          }
-          emitted = visible.length
-        }
-        for (const call of chunk.message?.tool_calls ?? []) {
-          toolCalls.push({
-            id: `call_${toolCalls.length}_${call.function.name}`,
-            name: call.function.name,
-            arguments: call.function.arguments,
-          })
-        }
-      }
+      const detail = await res.text().catch(() => '')
+      throw new Error(`Ollama ${res.status}: ${detail.slice(0, 200)}`)
     }
 
-    return { content: stripReasoning(raw).trim(), toolCalls }
+    const body = (await res.json()) as OllamaReply
+    if (body.error) throw new Error(body.error)
+
+    const content = stripReasoning(body.message?.content ?? '').trim()
+    // Not streamed: a one-sentence spoken reply does not benefit enough to
+    // justify a streaming transport through the proxy.
+    if (content) onToken?.(content)
+
+    const toolCalls: ToolCall[] = (body.message?.tool_calls ?? []).map((call, i) => ({
+      id: `call_${i}_${call.function.name}`,
+      name: call.function.name,
+      arguments: call.function.arguments,
+    }))
+
+    return { content, toolCalls }
   }
 }

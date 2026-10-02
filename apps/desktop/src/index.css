@@ -1,10 +1,64 @@
 @import "tailwindcss";
 
+/*
+ * Selawik, self-hosted. Metric-compatible with Segoe UI, so it reads as native
+ * on Windows while being the same face everywhere. Five real weights beat
+ * synthesising bold from one file.
+ */
+@font-face {
+  font-family: "Selawik";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("./assets/fonts/selawik/selawkl.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Selawik";
+  font-style: normal;
+  font-weight: 350;
+  font-display: swap;
+  src: url("./assets/fonts/selawik/selawksl.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Selawik";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/selawik/selawk.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Selawik";
+  font-style: normal;
+  font-weight: 500 600;
+  font-display: swap;
+  src: url("./assets/fonts/selawik/selawksb.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Selawik";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/selawik/selawkb.woff2") format("woff2");
+}
+
 @theme {
-  /* Terminal type. All of these are installed on this machine. */
+  --font-sans: "Selawik", "Segoe UI", system-ui, sans-serif;
+  /* Kept for the few places that are genuinely machine output: tool names,
+     commands in the approval prompt, paths. */
   --font-mono:
-    "JetBrains Mono", "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace,
-    monospace;
+    "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+
+  /* Surfaces, darkest to lightest. Three steps is enough to separate the
+     sidebar from the canvas from the raised composer without banding. */
+  --color-app: #0a0a0a;
+  --color-rail: #121212;
+  --color-raise: #1b1b1b;
+  --color-hover: #222222;
+  --color-line: #272727;
+
+  --color-ink: #e8e8e8;
+  --color-ink-dim: #8c8c8c;
+  --color-ink-faint: #5c5c5c;
 }
 
 html,
@@ -16,20 +70,36 @@ body,
 body {
   background: transparent;
   overflow: hidden;
-  /* Everything in this app is monospace; there is no prose here. */
-  font-family: var(--font-mono);
-  font-variant-ligatures: none;
-  color: #d9d9dc;
+  font-family: var(--font-sans);
+  color: #e7e7ea;
+  /* Chrome, not content: the window furniture should not be selectable, but
+     message text must be — see .selectable. */
   user-select: none;
   cursor: default;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Text worth copying back out, e.g. the command in an approval prompt. */
+/* Anything the user may want to copy out: message bodies, commands, paths. */
 .selectable {
   user-select: text;
-  cursor: text;
+  cursor: auto;
 }
 
-* {
-  letter-spacing: 0.02em !important;
+/* Thin scrollbar that does not fight a dark surface. */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, white 12%, transparent);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, white 20%, transparent);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
 }

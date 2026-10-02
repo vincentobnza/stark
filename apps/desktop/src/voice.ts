@@ -18,6 +18,9 @@ export interface ServiceHealth {
   llm_ready: boolean
   llm_model: string | null
   llm_fast: boolean
+  /** True when the service has an NVIDIA key for Kimi. */
+  kimi_ready: boolean
+  kimi_model: string | null
 }
 
 export async function serviceHealth(): Promise<ServiceHealth | null> {

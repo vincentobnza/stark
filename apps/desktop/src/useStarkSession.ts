@@ -35,6 +35,7 @@ export function useStarkSession() {
     setVoiceEngine,
     setTtsReady,
     setLlmReady,
+    setKimiReady,
     autoApprove,
   } = useStark()
 
@@ -184,6 +185,7 @@ export function useStarkSession() {
       if (health) setError(null)
       setTtsReady(health?.tts_ready ?? false)
       setLlmReady(health?.llm_ready ?? false)
+      setKimiReady(health?.kimi_ready ?? false)
       if (health && !health.tts_ready) setVoiceEngine('system')
       // Claude is the better brain by a wide margin, so prefer it whenever the
       // service actually has credentials for it.
@@ -252,10 +254,24 @@ export function useStarkSession() {
       instance.stop()
       gate.current = null
     }
-  }, [setStatus, setError, setCaption, setTtsReady, setLlmReady, setVoiceEngine])
+  }, [setStatus, setError, setCaption, setTtsReady, setLlmReady, setKimiReady, setVoiceEngine])
 
   /** Something is happening that the user can cut off. */
   const interruptible = status === 'thinking' || status === 'speaking'
 
-  return { interrupt, interruptible, micOpen, level }
+  /**
+   * Typed input. Adds the row immediately so the message appears the instant
+   * Enter is pressed, rather than after the model's first byte.
+   */
+  const send = useCallback(
+    (text: string) => {
+      const value = text.trim()
+      if (!value) return
+      useStark.getState().addMessage({ role: 'user', text: value })
+      void run(value)
+    },
+    [run],
+  )
+
+  return { send, interrupt, interruptible, micOpen, level }
 }

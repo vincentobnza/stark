@@ -80,8 +80,8 @@ export function Waveform({ level, active }: Props) {
   const amplitude = active ? level : 0
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-1 z-10 flex justify-center">
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-[76px] w-[340px] overflow-visible">
+    <div className="pointer-events-none h-full w-full">
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-full w-full overflow-visible">
         <defs>
           <linearGradient id="wave-base" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stopColor="#a78bfa" stopOpacity="0" />
@@ -162,17 +162,6 @@ export function Waveform({ level, active }: Props) {
           opacity={active ? 1 : 0.3}
         />
 
-        {!active && (
-          <text
-            x={W / 2}
-            y={MID + 18}
-            textAnchor="middle"
-            className="fill-red-300/70"
-            style={{ fontSize: 8, letterSpacing: '0.3em' }}
-          >
-            MIC OFF
-          </text>
-        )}
       </svg>
     </div>
   )

@@ -17,7 +17,13 @@ Set fso = CreateObject("Scripting.FileSystemObject")
 
 ' This script lives in <repo>\scripts, so the repo is its parent.
 repo = fso.GetParentFolderName(fso.GetParentFolderName(WScript.ScriptFullName))
-exe  = repo & "\apps\desktop\src-tauri\target\release\stark.exe"
+' Prefer the installed app — that is what the Desktop and Start Menu shortcuts
+' run, so login and a manual launch always start the same build. Fall back to
+' the repo build when Stark has not been installed yet.
+exe = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Stark\stark.exe"
+If Not fso.FileExists(exe) Then
+    exe = repo & "\apps\desktop\src-tauri\target\release\stark.exe"
+End If
 
 uv = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & _
      "\Microsoft\WinGet\Packages\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe\uv.exe"
